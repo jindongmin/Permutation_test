@@ -9,7 +9,7 @@ import pydeseq2
 from sys import argv
 import pandas as pd
 def pydeseq2_permutation_test(counts, group_labels, num_permutations=1000):
-    """Permutation test for differential expression using PyDESeq2.
+    """Permutation test for differential abundance using PyDESeq2.
 
     Parameters
     ----------
