@@ -47,6 +47,8 @@ def pydeseq2_permutation_test(counts, group_labels, num_permutations=1000):
     #calculate the rank of each gene
     ranks = np.argsort(sorted_indices)
 
+    #TO DO initialize the null distribution of the ranking
+    null_distribution = np.zeros((num_permutations, counts.shape[1]))
 
     # Perform the permutations
     for i in range(num_permutations):
@@ -68,8 +70,9 @@ def pydeseq2_permutation_test(counts, group_labels, num_permutations=1000):
         permuted_stat_res = DeseqStats(permuted_dds, n_cpus=8)
         # Get the test statistics for each gene with the permuted group labels
         permuted_res = permuted_stat_res.summary()
+        log2_fold_changes_permutated = permuted_res.results_df["log2FoldChange"]
 
-
+    #TO DO: calculate the p values
     #p values based on ranks
     return p_values_ranks, stat_res.results_df
 
