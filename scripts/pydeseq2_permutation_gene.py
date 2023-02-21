@@ -39,8 +39,14 @@ def pydeseq2_permutation_test(counts, group_labels, num_permutations=1000):
     # Get the test statistics for each gene
     res = stat_res.summary()
     
-    # Initialize the null distribution of the test statistic
-    null_distribution = np.zeros((num_permutations, counts.shape[1]))
+    #extract the log2FoldChange for each feature
+    log2_fold_changes = stat_res.results_df["log2FoldChange"]
+    #sort the log2foldchanges in descending order
+    sorted_indices = np.argsort(log2_fold_changes)[::-1]
+    sorted_log2_fold_changes = log2_fold_changes[sorted_indices]
+    #calculate the rank of each gene
+    ranks = np.argsort(sorted_indices)
+
 
     # Perform the permutations
     for i in range(num_permutations):
@@ -63,18 +69,9 @@ def pydeseq2_permutation_test(counts, group_labels, num_permutations=1000):
         # Get the test statistics for each gene with the permuted group labels
         permuted_res = permuted_stat_res.summary()
 
-        # Add the permuted test statistic to the null distribution
-        null_distribution[i, :] = permuted_stat_res.results_df['log2FoldChange']
 
-    # Calculate the p-values for each gene
-    p_values = np.zeros(counts.shape[1])
-    for i in range(counts.shape[1]):
-        if stat_res.results_df['log2FoldChange'].values[i] > 0:
-            p_values[i] = np.mean(null_distribution[:, i] > stat_res.results_df['log2FoldChange'].values[i])
-        else:
-            p_values[i] = np.mean(null_distribution[:, i] < stat_res.results_df['log2FoldChange'].values[i])
-
-    return p_values, stat_res.results_df
+    #p values based on ranks
+    return p_values_ranks, stat_res.results_df
 
 input_1 = argv[1]
 input_2 = argv[2]
