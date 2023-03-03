@@ -8,6 +8,7 @@ from scipy.sparse import coo_matrix
 import random
 from statsmodels.stats.proportion import binom_test
 from statsmodels.stats.multitest import multipletests
+from sys import argv
 
 def btest(pa1, pa2, seed=0, return_proportions=False):
     """ Performs genome wide binomial test between two groups of taxa
@@ -55,13 +56,31 @@ def parse_genome(df):
     keggs['genome_id'] = genome_id
     return keggs
 
+def to_sparse_matrix(func_df, genome_id='genome_id', kegg_id='KEGG_ko'):
+    # create genome-specific index
+    ogus = list(set(func_df[genome_id]))
+    ogu_lookup = pd.Series(np.arange(0, len(ogus)), ogus)
+    # create KEGG-specific index
+    keggs = list(set(func_df[kegg_id]))
+    kegg_lookup = pd.Series(np.arange(0, len(keggs)), keggs)
+    # rename names as numbers
+    ogu_id = func_df[genome_id].apply(lambda x: ogu_lookup.loc[x]).astype(np.int64)
+    kegg_id = func_df[kegg_id].apply(lambda x: kegg_lookup.loc[x]).astype(np.int64)
+    # assign the presence / absence of a gene
+    func_df['count'] = 1
+    c = func_df['count'].values
+    # format into a matrix
+    data = coo_matrix((c, (ogu_id, kegg_id)))
+    ko_ogu = pd.DataFrame(data.todense(), index=ogus, columns=keggs)
+    return ko_ogu
+
 def get_kegg_from_annotation(ids):
     """
     ids: Species_rep of the top/bottom k microbes
     """
     df_list = []
     for i in ids:
-        f_name = "../table/Species/{}_eggNOG.tsv".format(i)
+        f_name = "../../permutation_table/AD_species/{}_eggNOG.tsv".format(i)
         df_parsed = parse_genome(pd.read_table(f_name))
         df_list.append(df_parsed)
     df_cat = pd.concat(df_list, axis = 0)
@@ -72,7 +91,6 @@ def _test(X, y, k, p, M):
     """
     X: count matrix of microbes (m microbes X n samples)
     y: disease lables for samples (n samples)
-    G: gene table
     k: top k microbes, eg k = 100
     p: number of permutations, eg p = 1000
     M: metadata = pd.read_table('../table/eggNOG_species_rep.txt')
@@ -125,12 +143,29 @@ def permutation_test(X, y, k, p, M):
         y_permutated = np.random.permutation(y['disease'])
         y_permutated = pd.DataFrame(y_permutated, index=y.index)
         y_permutated.columns = ['disease']
-        y_permutated.reindex(counts.index)
+        y_permutated.reindex(X.index)
         T_ = _test(X, y_permutated, k, p, M)
     return T, (T > T_) / (p)
     #return T, (T > T_) / (p+1)
 
 
+input_1 = argv[1]
+input_2 = argv[2]
+input_3 = int(argv[3])
+input_4 = int(argv[4])
+input_5 = argv[5]
+output_1 = argv[6]
+# output_2 = argv[5]
 
+input_table = pd.read_table(input_1, sep = '\t', index_col = 0)
+input_table2 = pd.read_table(input_2, sep = '\t', index_col = 0)
+input_table3 = pd.read_table(input_5, sep = '\t')
+
+a,b = permutation_test(input_table,input_table2,input_3,input_4,input_table3)
+
+with open(output_1, "w") as output_h:
+    output_h.write(str(a) + "\n")
+    output_h.write(str(b) + "\n")
+ 
 
 
