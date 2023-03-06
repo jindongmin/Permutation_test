@@ -119,7 +119,9 @@ def _test(X, y, k, p, M):
     top_rep = M[M['Species'].isin(top_microbe)]
     bot_rep = M[M['Species'].isin(bot_microbe)]
     top_id = top_rep['Species_rep'].drop_duplicates()
+    top_id = [_test_top_id for _test_top_id in top_id if "." not in _test_top_id]
     bot_id = bot_rep['Species_rep'].drop_duplicates()
+    bot_id = [_test_bot_id for _test_bot_id in bot_id if "." not in _test_bot_id]
     #wget all ids: dir: /mnt/home/djin/ceph/Permutation_test/table/Species
     #get G gene matrix
     top_gene_matrix = get_kegg_from_annotation(top_id)
