@@ -140,6 +140,7 @@ def _test(X, y, k, p, M):
 
 def permutation_test(X, y, k, p, M):
     T = _test(X, y, k, p, M)
+    T_list = [0] * p
     for i in range(p):
         #shuffle the group lables
         y_permutated = np.random.permutation(y['disease'])
@@ -147,8 +148,9 @@ def permutation_test(X, y, k, p, M):
         y_permutated.columns = ['disease']
         y_permutated.reindex(X.index)
         T_ = _test(X, y_permutated, k, p, M)
-    return T, (T > T_) / (p)
-    #return T, (T > T_) / (p+1)
+        T_list[i] = T_
+        p_value = np.sum(T_list[i] > T) / (p+1)
+    return T, p_value
 
 
 input_1 = argv[1]
