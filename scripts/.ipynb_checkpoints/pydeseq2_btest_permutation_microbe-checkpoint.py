@@ -105,7 +105,6 @@ def _test(X, y, z, k, M, G, nc, pt):
     nc: number of cpu
     pt: the threshold of p value, eg pt = 0.001
     """
-    
     # Convert counts and group labels to PyDESeq2 input format
     dds = DeseqDataSet(
         X, 
@@ -145,6 +144,7 @@ def _test(X, y, z, k, M, G, nc, pt):
     top_gene_matrix = G.filter(items = top_id, axis=0)
     bot_gene_matrix = G.filter(items = bot_id, axis=0)
     frames = [top_gene_matrix, bot_gene_matrix]
+    #concatenate two gene matrix and filter out the kegg with only 0 values
     Conta_gene_matrix = pd.concat(frames)
     Conta_gene_matrix = Conta_gene_matrix.loc[:, (Conta_gene_matrix != 0).any(axis=0)]
     top_gene_matrix = Conta_gene_matrix.filter(items = top_id, axis=0)
@@ -216,15 +216,6 @@ def get_options():
 
 def main():
     option = get_options()
-    
-    # input_1 = argv[1]
-    # input_2 = argv[2]
-    # input_3 = int(argv[3])
-    # input_4 = int(argv[4])
-    # input_5 = argv[5]
-    # output_1 = argv[6]
-    # output_2 = argv[5]
-
     input_table = pd.read_table(option.microbe_table, sep = '\t', index_col = 0)
     input_table2 = pd.read_table(option.disease_labels, sep = '\t', index_col = 'featureid')
     input_table3 = pd.read_table(option.metadata, sep = '\t')
