@@ -78,20 +78,6 @@ def to_sparse_matrix(func_df, genome_id='genome_id', kegg_id='KEGG_ko'):
     data = coo_matrix((c, (ogu_id, kegg_id)))
     ko_ogu = pd.DataFrame(data.todense(), index=ogus, columns=keggs)
     return ko_ogu
-
-
-def get_kegg_from_annotation(ids):
-    """
-    ids: Species_rep of the top/bottom k microbes
-    """
-    df_list = []
-    for i in ids:
-        f_name = "../../permutation_table/AD_species/{}_eggNOG.tsv".format(i)
-        df_parsed = parse_genome(pd.read_table(f_name))
-        df_list.append(df_parsed)
-    df_cat = pd.concat(df_list, axis = 0)
-    kegg_counts = to_sparse_matrix(df_cat)
-    return kegg_counts
  
     
 def _test(X, y, z, k, M, G, nc, pt):
