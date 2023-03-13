@@ -80,14 +80,13 @@ def to_sparse_matrix(func_df, genome_id='genome_id', kegg_id='KEGG_ko'):
     return ko_ogu
  
     
-def _test(X, y, z, k, M, G, nc, pt):
+def _test(X, y, z, k, G, nc, pt):
     """
     X: count matrix of microbes (m microbes X n samples)
     y: disease lables for samples (n samples)
     z: colname of the condition (eg. disease status)
     k: top k microbes, eg k = 100
-    M: metadata = pd.read_table('../table/eggNOG_species_rep.txt')
-    G: annotation matrix of microbes (microbe ids X kegg ids)
+    G: annotation matrix of microbes (microbe ids X kegg ids), and have a column with species names
     nc: number of cpu
     pt: the threshold of p value, eg pt = 0.001
     """
@@ -120,26 +119,18 @@ def _test(X, y, z, k, M, G, nc, pt):
     #convert microbe names to species ids
     top_microbe = set(top.index)
     bot_microbe = set(bot.index)
-    top_rep = M[M['Species'].isin(top_microbe)]
-    bot_rep = M[M['Species'].isin(bot_microbe)]
-    top_id = top_rep['Species_rep'].drop_duplicates()
-    top_id = [_test_top_id for _test_top_id in top_id if "." not in _test_top_id]
-    bot_id = bot_rep['Species_rep'].drop_duplicates()
-    bot_id = [_test_bot_id for _test_bot_id in bot_id if "." not in _test_bot_id]
-    #get top and bot G gene matrix
-    top_gene_matrix = G.filter(items = top_id, axis=0)
-    bot_gene_matrix = G.filter(items = bot_id, axis=0)
+    top_gene_matrix = G[G['Species'].isin(top_microbe)]
+    bot_gene_matrix = G[G['Species'].isin(bot_microbe)]
     frames = [top_gene_matrix, bot_gene_matrix]
     #concatenate two gene matrix and filter out the kegg with only 0 values
     Conta_gene_matrix = pd.concat(frames)
     Conta_gene_matrix = Conta_gene_matrix.loc[:, (Conta_gene_matrix != 0).any(axis=0)]
-    top_gene_matrix = Conta_gene_matrix.filter(items = top_id, axis=0)
-    bot_gene_matrix = Conta_gene_matrix.filter(items = bot_id, axis=0)
+    top_gene_matrix = Conta_gene_matrix[Conta_gene_matrix['Species'].isin(top_microbe)]
+    bot_gene_matrix = Conta_gene_matrix[Conta_gene_matrix['Species'].isin(bot_microbe)]
+    top_gene_matrix = top_gene_matrix.drop('Species', axis=1)
+    bot_gene_matrix = bot_gene_matrix.drop('Species', axis=1)
     #binomial test Return number of genes elevated in top
-    """
-    C = btest(G[top], G[bot])
-    return C
-    """
+    #C = btest(G[top], G[bot])
     kegg = btest(top_gene_matrix,bot_gene_matrix,return_proportions=True)
     kegg_top = kegg.loc[kegg['side'] == 'groupA']
     kegg_top_sig = kegg_top.loc[kegg_top['pval'] <= pt]
@@ -147,12 +138,9 @@ def _test(X, y, z, k, M, G, nc, pt):
     return C    
 
 
-def permutation_test(X, y, z, k, p, M, G, nc, pt):
-    """
-    p: number of permutations, eg p = 1000
-    
-    """
-    T = _test(X, y, z, k, M, G, nc, pt)
+def permutation_test(X, y, z, k, p, G, nc, pt):
+    #p: number of permutations, eg p = 1000
+    T = _test(X, y, z, k, G, nc, pt)
     T_list = np.zeros(p)
     for i in range(p):
         #shuffle the group lables
@@ -160,7 +148,7 @@ def permutation_test(X, y, z, k, p, M, G, nc, pt):
         y_permutated = pd.DataFrame(y_permutated, index=y.index)
         y_permutated.columns = [z]
         y_permutated.reindex(X.index)
-        T_ = _test(X, y_permutated, z, k, M, G, nc, pt)
+        T_ = _test(X, y_permutated, z, k, G, nc, pt)
         T_list[i] = T_
     p_value = np.sum(T_list > T) / (p+1)
     return T, p_value
@@ -183,9 +171,6 @@ def get_options():
     parser.add_argument("-p", dest="permutations", default=1000, type=int,
                        help="number of permutations. "
                             "Default: %(default)i")
-    parser.add_argument("-M", dest="metadata",
-                       help="metadata for ids and species",
-                       required=True)
     parser.add_argument("-G", dest="gene_matrix",
                        help="gene matrix for microbes",
                        required=True)
@@ -204,16 +189,14 @@ def main():
     option = get_options()
     input_table = pd.read_table(option.microbe_table, sep = '\t', index_col = 0)
     input_table2 = pd.read_table(option.disease_labels, sep = '\t', index_col = 'featureid')
-    input_table3 = pd.read_table(option.metadata, sep = '\t')
-    input_table4 = pd.read_table(option.gene_matrix, sep='\t', index_col = 0 )
+    input_table3 = pd.read_table(option.gene_matrix, sep='\t', index_col = 0 )
 
     a,b = permutation_test(X = input_table,
                            y = input_table2,
                            z = option.disease_status,
                            k = option.top_k,
                            p = option.permutations,
-                           M = input_table3,
-                           G = input_table4,
+                           G = input_table3,
                            nc = option.number_cpus,
                            pt = option.pval)
 
