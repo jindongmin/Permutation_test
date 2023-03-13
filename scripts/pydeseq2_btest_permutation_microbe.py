@@ -153,7 +153,7 @@ def permutation_test(X, y, z, k, p, M, G, nc, pt):
     
     """
     T = _test(X, y, z, k, M, G, nc, pt)
-    T_list = [0] * p
+    T_list = np.zeros(p)
     for i in range(p):
         #shuffle the group lables
         y_permutated = np.random.permutation(y[z])
@@ -162,7 +162,7 @@ def permutation_test(X, y, z, k, p, M, G, nc, pt):
         y_permutated.reindex(X.index)
         T_ = _test(X, y_permutated, z, k, M, G, nc, pt)
         T_list[i] = T_
-        p_value = np.sum(T_list[i] > T) / (p+1)
+    p_value = np.sum(T_list > T) / (p+1)
     return T, p_value
 
 
@@ -191,7 +191,7 @@ def get_options():
                        required=True)
     parser.add_argument("-nc", dest="number_cpus",default=8, type=int,
                        help="number of cpus")
-    parser.add_argument("-pt", dest="pval",default=0.001, type=float,
+    parser.add_argument("-pt", dest="pval",default=0.05, type=float,
                        help="threshold of p value")
     parser.add_argument("-o", dest="output_file",
                        help="number of genes and p value",
