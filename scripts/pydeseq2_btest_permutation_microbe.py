@@ -8,7 +8,9 @@ from scipy.sparse import coo_matrix
 import random
 from statsmodels.stats.proportion import binom_test
 from statsmodels.stats.multitest import multipletests
-from sys import argv
+#from sys import argv
+from argparse import ArgumentParser 
+
 
 def btest(pa1, pa2, seed=0, return_proportions=False):
     """ Performs genome wide binomial test between two groups of taxa
@@ -47,6 +49,7 @@ def btest(pa1, pa2, seed=0, return_proportions=False):
 
     return pvals
 
+
 def parse_genome(df):
     genome_id = df['#query'][0].split('_')[0]
     keggs = df['KEGG_ko'].replace('-', None).dropna()
@@ -55,6 +58,7 @@ def parse_genome(df):
     keggs = pd.DataFrame({'KEGG_ko': keggs})
     keggs['genome_id'] = genome_id
     return keggs
+
 
 def to_sparse_matrix(func_df, genome_id='genome_id', kegg_id='KEGG_ko'):
     # create genome-specific index
@@ -74,6 +78,7 @@ def to_sparse_matrix(func_df, genome_id='genome_id', kegg_id='KEGG_ko'):
     ko_ogu = pd.DataFrame(data.todense(), index=ogus, columns=keggs)
     return ko_ogu
 
+
 def get_kegg_from_annotation(ids):
     """
     ids: Species_rep of the top/bottom k microbes
@@ -86,13 +91,13 @@ def get_kegg_from_annotation(ids):
     df_cat = pd.concat(df_list, axis = 0)
     kegg_counts = to_sparse_matrix(df_cat)
     return kegg_counts
+ 
     
-def _test(X, y, k, p, M):
+def _test(X, y, k, M):
     """
     X: count matrix of microbes (m microbes X n samples)
     y: disease lables for samples (n samples)
     k: top k microbes, eg k = 100
-    p: number of permutations, eg p = 1000
     M: metadata = pd.read_table('../table/eggNOG_species_rep.txt')
     """
     # Convert counts and group labels to PyDESeq2 input format
@@ -138,8 +143,12 @@ def _test(X, y, k, p, M):
     C = len(kegg_top_sig.index)
     return C    
 
+
 def permutation_test(X, y, k, p, M):
-    T = _test(X, y, k, p, M)
+    """
+    p: number of permutations, eg p = 1000
+    """
+    T = _test(X, y, k, M)
     T_list = [0] * p
     for i in range(p):
         #shuffle the group lables
@@ -147,29 +156,63 @@ def permutation_test(X, y, k, p, M):
         y_permutated = pd.DataFrame(y_permutated, index=y.index)
         y_permutated.columns = ['disease']
         y_permutated.reindex(X.index)
-        T_ = _test(X, y_permutated, k, p, M)
+        T_ = _test(X, y_permutated, k, M)
         T_list[i] = T_
         p_value = np.sum(T_list[i] > T) / (p+1)
     return T, p_value
 
 
-input_1 = argv[1]
-input_2 = argv[2]
-input_3 = int(argv[3])
-input_4 = int(argv[4])
-input_5 = argv[5]
-output_1 = argv[6]
-# output_2 = argv[5]
+def get_options():
+    parser = ArgumentParser()
+    parser.add_argument("-x", dest="microbe_table",
+                       help="count matrix of microbes (m microbes X n samples)",
+                       required=True)
+    parser.add_argument("-y", dest="disease_labels",
+                       help="disease lables for samples (n samples)",
+                       required=True)
+    parser.add_argument("-k", dest="top_k", default=100, type=int,
+                       help="top k microbes. "
+                            "Default: %(default)i"
+                       )
+    parser.add_argument("-p", dest="permutations", default=1000, type=int,
+                       help="number of permutations. "
+                            "Default: %(default)i"
+                       )
+    parser.add_argument("-M", dest="metadata",
+                       help="metadata for ids and species",
+                       required=True)
+    parser.add_argument("-o", dest="output_file",
+                       help="number of genes and p value",
+                       required=True)
+    options = parser.parse_args()
+    return options
 
-input_table = pd.read_table(input_1, sep = '\t', index_col = 0)
-input_table2 = pd.read_table(input_2, sep = '\t', index_col = 0)
-input_table3 = pd.read_table(input_5, sep = '\t')
 
-a,b = permutation_test(input_table,input_table2,input_3,input_4,input_table3)
+def main():
+    option = get_options()
+    
+    # input_1 = argv[1]
+    # input_2 = argv[2]
+    # input_3 = int(argv[3])
+    # input_4 = int(argv[4])
+    # input_5 = argv[5]
+    # output_1 = argv[6]
+    # output_2 = argv[5]
 
-with open(output_1, "w") as output_h:
-    output_h.write(str(a) + "\n")
-    output_h.write(str(b) + "\n")
- 
+    input_table = pd.read_table(option.microbe_table, sep = '\t', index_col = 0)
+    input_table2 = pd.read_table(option.disease_labels, sep = '\t', index_col = 'featureid')
+    input_table3 = pd.read_table(option.metadata, sep = '\t')
+
+    a,b = permutation_test(X = input_table,
+                           y = input_table2,
+                           k = option.top_k,
+                           p = option.permutations,
+                           M = input_table3)
+
+    with open(option.output_file, "w") as output_h:
+        output_h.write(str(a) + "\n")
+        output_h.write(str(b) + "\n")
 
 
+if __name__ == '__main__':
+    main()
