@@ -94,7 +94,7 @@ def get_kegg_from_annotation(ids):
     return kegg_counts
  
     
-def _test(X, y, z, k, M, G, nc):
+def _test(X, y, z, k, M, G, nc, pt):
     """
     X: count matrix of microbes (m microbes X n samples)
     y: disease lables for samples (n samples)
@@ -103,6 +103,7 @@ def _test(X, y, z, k, M, G, nc):
     M: metadata = pd.read_table('../table/eggNOG_species_rep.txt')
     G: annotation matrix of microbes (microbe ids X kegg ids)
     nc: number of cpu
+    pt: the threshold of p value, eg pt = 0.001
     """
     
     # Convert counts and group labels to PyDESeq2 input format
@@ -155,16 +156,17 @@ def _test(X, y, z, k, M, G, nc):
     """
     kegg = btest(top_gene_matrix,bot_gene_matrix,return_proportions=True)
     kegg_top = kegg.loc[kegg['side'] == 'groupA']
-    kegg_top_sig = kegg_top.loc[kegg_top['pval'] <= 0.001]
+    kegg_top_sig = kegg_top.loc[kegg_top['pval'] <= pt]
     C = len(kegg_top_sig.index)
     return C    
 
 
-def permutation_test(X, y, z, k, p, M, G, nc):
+def permutation_test(X, y, z, k, p, M, G, nc, pt):
     """
     p: number of permutations, eg p = 1000
+    
     """
-    T = _test(X, y, z, k, M, G, nc)
+    T = _test(X, y, z, k, M, G, nc, pt)
     T_list = [0] * p
     for i in range(p):
         #shuffle the group lables
@@ -172,7 +174,7 @@ def permutation_test(X, y, z, k, p, M, G, nc):
         y_permutated = pd.DataFrame(y_permutated, index=y.index)
         y_permutated.columns = [z]
         y_permutated.reindex(X.index)
-        T_ = _test(X, y_permutated, z, k, M, G, nc)
+        T_ = _test(X, y_permutated, z, k, M, G, nc, pt)
         T_list[i] = T_
         p_value = np.sum(T_list[i] > T) / (p+1)
     return T, p_value
@@ -203,6 +205,8 @@ def get_options():
                        required=True)
     parser.add_argument("-nc", dest="number_cpus",default=8, type=int,
                        help="number of cpus")
+    parser.add_argument("-pt", dest="pval",default=0.001, type=float,
+                       help="threshold of p value")
     parser.add_argument("-o", dest="output_file",
                        help="number of genes and p value",
                        required=True)
@@ -233,7 +237,8 @@ def main():
                            p = option.permutations,
                            M = input_table3,
                            G = input_table4,
-                           nc = option.number_cpus)
+                           nc = option.number_cpus,
+                           pt = option.pval)
 
     with open(option.output_file, "w") as output_h:
         output_h.write(str(a) + "\n")
