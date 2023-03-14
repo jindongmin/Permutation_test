@@ -5,4 +5,4 @@ python ../scripts/pydeseq2_btest_permutation_microbe.py -x table_sim_microbes.tx
                                              -p 10 \
                                              -G G_matrix_sim.txt \
                                              -pt 0.05 \
-                                             -o test_output.txt
+                                             -o test_output

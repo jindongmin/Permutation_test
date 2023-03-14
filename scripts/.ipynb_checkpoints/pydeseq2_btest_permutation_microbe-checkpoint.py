@@ -10,6 +10,7 @@ from statsmodels.stats.proportion import binom_test
 from statsmodels.stats.multitest import multipletests
 #from sys import argv
 from argparse import ArgumentParser 
+import os
 
 
 def btest(pa1, pa2, seed=0, return_proportions=False):
@@ -135,12 +136,12 @@ def _test(X, y, z, k, G, nc, pt):
     kegg_top = kegg.loc[kegg['side'] == 'groupA']
     kegg_top_sig = kegg_top.loc[kegg_top['pval'] <= pt]
     C = len(kegg_top_sig.index)
-    return C    
+    return C, kegg_top_sig   
 
 
 def permutation_test(X, y, z, k, p, G, nc, pt):
     #p: number of permutations, eg p = 1000
-    T = _test(X, y, z, k, G, nc, pt)
+    T, kegg_top_sig = _test(X, y, z, k, G, nc, pt)
     T_list = np.zeros(p)
     for i in range(p):
         #shuffle the group lables
@@ -148,10 +149,10 @@ def permutation_test(X, y, z, k, p, G, nc, pt):
         y_permutated = pd.DataFrame(y_permutated, index=y.index)
         y_permutated.columns = [z]
         y_permutated.reindex(X.index)
-        T_ = _test(X, y_permutated, z, k, G, nc, pt)
+        T_, foo = _test(X, y_permutated, z, k, G, nc, pt)
         T_list[i] = T_
     p_value = np.sum(T_list > T) / (p+1)
-    return T, p_value
+    return T, p_value, kegg_top_sig
 
 
 def get_options():
@@ -178,10 +179,13 @@ def get_options():
                        help="number of cpus")
     parser.add_argument("-pt", dest="pval",default=0.05, type=float,
                        help="threshold of p value")
-    parser.add_argument("-o", dest="output_file",
-                       help="number of genes and p value",
+    parser.add_argument("-o", dest="output_dir",
+                       help="new output folder containing following files: "
+                            "1) txt: number of genes and p value, "
+                            "2) table: kegg_top_sig ",
                        required=True)
     options = parser.parse_args()
+    os.mkdir(options.output_dir)
     return options
 
 
@@ -191,18 +195,19 @@ def main():
     input_table2 = pd.read_table(option.disease_labels, sep = '\t', index_col = 'featureid')
     input_table3 = pd.read_table(option.gene_matrix, sep='\t', index_col = 0 )
 
-    a,b = permutation_test(X = input_table,
-                           y = input_table2,
-                           z = option.disease_status,
-                           k = option.top_k,
-                           p = option.permutations,
-                           G = input_table3,
-                           nc = option.number_cpus,
-                           pt = option.pval)
+    T, p_value, kegg_top_sig = permutation_test(X = input_table,
+                                                y = input_table2,
+                                                z = option.disease_status,
+                                                k = option.top_k,
+                                                p = option.permutations,
+                                                G = input_table3,
+                                                nc = option.number_cpus,
+                                                pt = option.pval)
 
-    with open(option.output_file, "w") as output_h:
-        output_h.write(str(a) + "\n")
-        output_h.write(str(b) + "\n")
+    with open(option.output_dir + "/n_genes_p_value.txt", "w") as output_h:
+        output_h.write(str(T) + "\n")
+        output_h.write(str(p_value) + "\n")
+    kegg_top_sig.to_csv(option.output_dir + "/" + "kegg_sig.tsv", sep = '\t')
 
 
 if __name__ == '__main__':
