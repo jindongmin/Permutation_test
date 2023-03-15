@@ -130,10 +130,11 @@ def _test(X, y, z, k, G, nc, pt):
     bot_gene_matrix = Conta_gene_matrix[Conta_gene_matrix['Species'].isin(bot_microbe)]
     top_gene_matrix = top_gene_matrix.drop('Species', axis=1)
     bot_gene_matrix = bot_gene_matrix.drop('Species', axis=1)
-    #binomial test Return number of genes elevated in top
+    #binomial test Return number of genes elevated in top: diseased
     #C = btest(G[top], G[bot])
-    kegg = btest(top_gene_matrix,bot_gene_matrix,return_proportions=True)
-    kegg_top = kegg.loc[kegg['side'] == 'groupA']
+    #kegg = btest(top_gene_matrix,bot_gene_matrix,return_proportions=True)
+    kegg = btest(bot_gene_matrix,top_gene_matrix,return_proportions=True)
+    kegg_top = kegg.loc[kegg['side'] == 'groupB']
     kegg_top_sig = kegg_top.loc[kegg_top['pval'] <= pt]
     C = len(kegg_top_sig.index)
     return C, kegg_top_sig   
@@ -142,6 +143,7 @@ def _test(X, y, z, k, G, nc, pt):
 def permutation_test(X, y, z, k, p, G, nc, pt):
     #p: number of permutations, eg p = 1000
     T, kegg_top_sig = _test(X, y, z, k, G, nc, pt)
+    print(kegg_top_sig)
     T_list = np.zeros(p)
     for i in range(p):
         #shuffle the group lables
@@ -149,7 +151,8 @@ def permutation_test(X, y, z, k, p, G, nc, pt):
         y_permutated = pd.DataFrame(y_permutated, index=y.index)
         y_permutated.columns = [z]
         y_permutated.reindex(X.index)
-        T_, foo = _test(X, y_permutated, z, k, G, nc, pt)
+        y = y_permutated
+        T_, foo = _test(X, y, z, k, G, nc, pt)
         T_list[i] = T_
     p_value = np.sum(T_list > T) / (p+1)
     return T, p_value, kegg_top_sig
