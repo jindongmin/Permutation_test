@@ -81,7 +81,7 @@ def to_sparse_matrix(func_df, genome_id='genome_id', kegg_id='KEGG_ko'):
     return ko_ogu
  
     
-def _test(X, y, z, k, G, nc, pt):
+def _test(X, y, z, k, G, nc, pt, test_type):
     """
     X: count matrix of microbes (m microbes X n samples)
     y: disease lables for samples (n samples)
@@ -90,6 +90,9 @@ def _test(X, y, z, k, G, nc, pt):
     G: annotation matrix of microbes (microbe ids X kegg ids), and have a column with species names
     nc: number of cpu
     pt: the threshold of p value, eg pt = 0.001
+    test_type : str
+       If `total`, then return the total number of significant genes
+       If `euclidean` then return the euclidean distance to original pvalue distribution
     """
     # Convert counts and group labels to PyDESeq2 input format
     dds = DeseqDataSet(
@@ -136,13 +139,17 @@ def _test(X, y, z, k, G, nc, pt):
     kegg = btest(bot_gene_matrix,top_gene_matrix,return_proportions=True)
     kegg_top = kegg.loc[kegg['side'] == 'groupB']
     kegg_top_sig = kegg_top.loc[kegg_top['pval'] <= pt]
-    C = len(kegg_top_sig.index)
+    if test_type == 'total':
+        C = len(kegg_top_sig.index)
+    if test_type == 'euclidean':
+        C = np.linalg.norm(-np.log(kegg['pval']), 2)
+              
     return C, kegg_top_sig   
 
 
-def permutation_test(X, y, z, k, p, G, nc, pt):
+def permutation_test(X, y, z, k, p, G, nc, pt, test_type = 'total):
     #p: number of permutations, eg p = 1000
-    T, kegg_top_sig = _test(X, y, z, k, G, nc, pt)
+    T, kegg_top_sig = _test(X, y, z, k, G, nc, pt, test_type)
     print(kegg_top_sig)
     T_list = np.zeros(p)
     for i in range(p):
@@ -152,7 +159,7 @@ def permutation_test(X, y, z, k, p, G, nc, pt):
         y_permutated.columns = [z]
         y_permutated.reindex(X.index)
         y = y_permutated
-        T_, foo = _test(X, y, z, k, G, nc, pt)
+        T_, foo = _test(X, y, z, k, G, nc, pt, test_type)
         T_list[i] = T_
     p_value = np.sum(T_list > T) / (p+1)
     return T, p_value, kegg_top_sig
